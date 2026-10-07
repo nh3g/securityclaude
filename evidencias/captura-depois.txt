@@ -1,0 +1,20 @@
+===D_BOLA (403)===
+HTTP/1.1 403 Forbidden
+{"message":"nao autorizado a alterar outro lojista","error":"Forbidden","statusCode":403}
+===D_ALGNONE (401)===
+HTTP/1.1 401 Unauthorized
+{"message":"token invalido","error":"Unauthorized","statusCode":401}
+===D_OLDSECRET (401)===
+HTTP/1.1 401 Unauthorized
+===D_EXPIRED (401)===
+HTTP/1.1 401 Unauthorized
+===D_IDOR (403)===
+HTTP/1.1 403 Forbidden
+===D_OWN_DTO===
+{"id":"m_4821","nome":"Mentoria Alpha Trader","email":"contato@alphatrader.com","payout_banco":"341","payout_agencia":"2020","payout_conta":"****-4","saldo_centavos":9610000}
+===D_TRAVERSAL (400)===
+HTTP/1.1 400 Bad Request
+{"message":"referencia de relatorio invalida","error":"Bad Request","statusCode":400}
+===D_HAPPY (201)===
+HTTP/1.1 201 Created
+{"ok":true,"merchant":{"id":"m_4821","nome":"Mentoria Alpha Trader","email":"contato@alphatrader.com","payout_banco":"341","payout_agencia":"2020","payout_conta":"****-4","saldo_centavos":9610000}}
