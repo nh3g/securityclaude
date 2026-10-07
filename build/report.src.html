@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório de segurança — Arara Pay (lab)</title>
+<style>
+  :root{
+    --ink:#1b1f24; --soft:#55606b; --line:#dcd8cf; --accent:#0f5e57;
+    --bg:#ffffff; --surface:#faf8f3; --code-bg:#f5f3ec; --code-fg:#243038; --code-line:#e2ddd0;
+    --crit:#9b1c1c; --crit-bg:#f8e6e4; --alta:#9a4a06; --alta-bg:#f8ecdf;
+    --media:#796210; --media-bg:#f5efda; --baixa:#34506a; --baixa-bg:#e6edf2;
+  }
+  @page{ size:A4; margin:15mm 14mm 16mm 14mm; }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Liberation Sans","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink); background:var(--bg); line-height:1.5; font-size:10.3pt; margin:0;
+  }
+  h1,h2,h3{ line-height:1.2; margin:0 0 .3em; }
+  h1{ font-size:21pt; letter-spacing:-.01em; }
+  h2{ font-size:14pt; color:var(--accent); margin-top:1.1em; border-bottom:2px solid var(--line); padding-bottom:3px; }
+  h3{ font-size:11.3pt; margin-top:.9em; }
+  p{ margin:.45em 0; }
+  a{ color:var(--accent); text-decoration:none; }
+  code{ font-family:"Liberation Mono","DejaVu Sans Mono",monospace; font-size:9pt; background:var(--code-bg); padding:.5px 3px; border-radius:3px; }
+  pre{ font-family:"Liberation Mono","DejaVu Sans Mono",monospace; font-size:8.4pt; background:var(--code-bg); color:var(--code-fg);
+       border:1px solid var(--code-line); border-left:3px solid var(--accent); border-radius:5px; padding:8px 10px; overflow:hidden; white-space:pre-wrap; word-break:break-word; margin:.5em 0; }
+  pre code{ background:none; padding:0; font-size:inherit; }
+  .mark{ font-family:"Liberation Mono",monospace; font-size:8pt; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .meta{ color:var(--soft); font-size:9.3pt; }
+  .meta b{ color:var(--ink); }
+  hr{ border:none; border-top:1px solid var(--line); margin:1.1em 0; }
+
+  .cover{ border:1px solid var(--line); border-top:4px solid var(--accent); border-radius:8px; padding:16px 18px; background:var(--surface); margin-bottom:6px; }
+  .lead{ font-size:10.6pt; }
+
+  table{ border-collapse:collapse; width:100%; font-size:9.2pt; margin:.5em 0; }
+  th,td{ border:1px solid var(--line); padding:5px 7px; text-align:left; vertical-align:top; }
+  th{ background:var(--surface); font-size:8.6pt; text-transform:uppercase; letter-spacing:.03em; color:var(--soft); }
+  td.c{ text-align:center; white-space:nowrap; }
+
+  .chip{ display:inline-block; font-size:8pt; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+         padding:1.5px 7px; border-radius:999px; vertical-align:middle; }
+  .c-crit{ color:var(--crit); background:var(--crit-bg); }
+  .c-alta{ color:var(--alta); background:var(--alta-bg); }
+  .c-media{ color:var(--media); background:var(--media-bg); }
+  .c-baixa{ color:var(--baixa); background:var(--baixa-bg); }
+
+  .finding{ margin-top:1.1em; }
+  .finding h3{ break-after:avoid; }
+  .where{ color:var(--soft); font-size:9pt; margin:.1em 0 .4em; }
+  .lbl{ font-weight:700; color:var(--ink); }
+  figure{ margin:.6em 0; break-inside:avoid; }
+  figure img{ width:100%; border:1px solid var(--line); border-radius:6px; display:block; }
+  figcaption{ font-size:8.2pt; color:var(--soft); margin-top:3px; }
+  .avoid{ break-inside:avoid; }
+  .pagebreak{ break-before:page; }
+  .note{ background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--media); border-radius:5px; padding:7px 10px; font-size:9.2pt; margin:.5em 0; }
+  ul{ margin:.4em 0; padding-left:18px; }
+  li{ margin:.2em 0; }
+  .foot{ color:var(--soft); font-size:8.3pt; text-align:center; margin-top:1.4em; border-top:1px solid var(--line); padding-top:6px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mark">Relatório de segurança · confidencial</div>
+  <h1>Arara Pay — avaliação do laboratório</h1>
+  <p class="meta"><b>Candidato:</b> Enzo Augusto Ferreira &nbsp;·&nbsp; <b>Data:</b> 07/10/2026 &nbsp;·&nbsp; <b>Time:</b> Tamborete Pay</p>
+  <p class="meta"><b>Escopo:</b> cinco arquivos em <code>src/</code> (<code>auth.ts</code>, <code>db.ts</code>, <code>merchants.controller.ts</code>, <code>reports.controller.ts</code>, <code>main.ts</code>). Todas as provas foram executadas contra a instância local em <code>http://localhost:3000</code>, banco em memória, sem nenhum sistema real envolvido.</p>
+</div>
+
+<h2>Resumo executivo</h2>
+<p class="lead">A API tem uma cadeia crítica que termina em dinheiro saindo. A verificação de token aceita <code>alg:none</code>, então qualquer pessoa — sem conta e sem senha — forja a identidade de qualquer lojista. E o endpoint que troca a conta de recebimento (payout) decide de quem é a conta pelo <b>corpo</b> da requisição, não pelo token. Juntos, permitem redirecionar o recebimento de qualquer lojista para a conta do fraudador, com o aviso por e-mail desligado na mesma chamada e sem nenhum registro de quem alterou.</p>
+<p>Em paralelo, qualquer token lê o cadastro completo de qualquer lojista — incluindo <b>senha em texto plano</b>, <code>api_key</code> e <code>webhook_secret</code> (que, de quebra, é o mesmo para todos). A primeira coisa a corrigir é a autorização da troca de payout junto com a verificação do JWT, no mesmo deploy: uma sem a outra deixa o caminho crítico aberto.</p>
+
+<h2>Metodologia e ambiente</h2>
+<p>Leitura dos cinco arquivos para levantar os pontos suspeitos, depois subida do lab (<code>npm install &amp;&amp; npm start</code>, Node 22) e execução de cada ataque com <code>curl</code>, confirmando o efeito no estado da aplicação — lendo o cadastro antes e depois, conferindo o log do servidor. Os tokens forjados (<code>alg:none</code>, HS256 assinado com o segredo do código, e um token expirado) foram gerados com um script pequeno de HMAC, sem bibliotecas externas, para a prova ser auditável. As saídas coladas e os screenshots deste documento são a mesma execução; a transcrição completa segue no anexo A.</p>
+
+<h2>Ranking de correção</h2>
+<p><span class="lbl">Critério:</span> peso maior para dinheiro saindo agora, depois facilidade de exploração (precisa de credencial?) e alcance (quantos lojistas). Falha que só fica grave combinada com outra herda a urgência da cadeia.</p>
+<table>
+  <thead><tr><th class="c">#</th><th>Falha</th><th class="c">Severidade</th><th>Por que nessa posição</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td>Troca de payout sem checar dono (BOLA)</td><td class="c"><span class="chip c-crit">Crítica</span></td><td>É a ação que move dinheiro. Um campo no corpo decide a vítima.</td></tr>
+    <tr><td class="c">2</td><td>JWT aceita <code>alg:none</code></td><td class="c"><span class="chip c-crit">Crítica</span></td><td>Transforma a #1 em ataque sem conta nenhuma. Vai junto da #1.</td></tr>
+    <tr><td class="c">3</td><td>Vazamento do cadastro + senha em texto plano</td><td class="c"><span class="chip c-crit">Crítica</span></td><td>Entrega senha, <code>api_key</code> e <code>webhook_secret</code> de todos. Takeover em massa.</td></tr>
+    <tr><td class="c">4</td><td>Segredo do JWT fixo no código</td><td class="c"><span class="chip c-alta">Alta</span></td><td>Caminho de forja independente do <code>alg:none</code>. Exige rotacionar segredo.</td></tr>
+    <tr><td class="c">5</td><td>Token sem expiração / <code>ignoreExpiration</code></td><td class="c"><span class="chip c-alta">Alta</span></td><td>Qualquer token vazado vale para sempre.</td></tr>
+    <tr><td class="c">6</td><td><code>webhook_secret</code> igual para todos</td><td class="c"><span class="chip c-alta">Alta</span></td><td>Permite forjar "pagamento aprovado" de outro lojista.</td></tr>
+    <tr><td class="c">7</td><td>Token e parâmetros em log (debug → CloudWatch)</td><td class="c"><span class="chip c-media">Média</span></td><td>Canal de vazamento que alimenta a #3 e a #5.</td></tr>
+    <tr><td class="c">8</td><td>Path traversal no relatório</td><td class="c"><span class="chip c-media">Média</span></td><td>Entrada do cliente monta o caminho do arquivo sem normalizar.</td></tr>
+    <tr><td class="c">9</td><td>Aviso ao lojista desligável pelo chamador</td><td class="c"><span class="chip c-media">Média</span></td><td>Deixa a fraude silenciosa. Agrava a #1.</td></tr>
+    <tr><td class="c">10</td><td>Login sem rate limit e sem MFA</td><td class="c"><span class="chip c-baixa">Baixa</span></td><td>Força bruta de senha fraca. Não é o caminho mais curto aqui.</td></tr>
+    <tr><td class="c">11</td><td>Sem trilha de auditoria (<code>payout_log</code> nunca escrito)</td><td class="c"><span class="chip c-baixa">Baixa</span></td><td>Não é explorável sozinha, mas impede responder "alguém já usou isso?".</td></tr>
+  </tbody>
+</table>
+<p class="meta">Observações menores (M1–M4) no fim da seção de achados; não mudam o ranking.</p>
+
+<h2 class="pagebreak">Achados</h2>
+
+<div class="finding">
+  <h3>1. Troca de payout sem validar titularidade — BOLA <span class="chip c-crit">Crítica</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>merchants.controller.ts</code>, <code>trocarPayout()</code>, linhas 22–53.</p>
+  <p><span class="lbl">O que é.</span> O endpoint <code>POST /v1/merchants/payout-account</code> pega o <code>merchant_id</code> do <b>corpo</b> da requisição (linha 28) e atualiza a conta de recebimento daquele id. Nunca confere se o token pertence ao lojista alterado. Qualquer chamador autenticado troca a conta de qualquer lojista.</p>
+  <p><span class="lbl">Prova.</span> Atacante é o <code>m_4821</code> (login legítimo). Alvo é o <code>m_0093</code> (saldo R$ 48.200,00).</p>
+  <figure><img src="{{IMG:04_bola_payout}}"><figcaption>Figura 1 — payout do m_0093 trocado com o token do m_4821; HTTP 201 e valor persistido (999/6666/00000-0).</figcaption></figure>
+  <div class="note">Detalhe para a defesa: o corpo da resposta devolve o registro <b>como estava antes</b> do <code>UPDATE</code> (o objeto é lido antes da escrita). Por isso a prova confirma a troca relendo o cadastro depois, não pela resposta do POST.</div>
+  <p><span class="lbl">Impacto na Arara.</span> É o pior tipo de falha para um gateway: o dinheiro do lojista cai na conta do fraudador. Com um laço sobre os ids, o atacante reescreve o payout da base inteira antes do próximo ciclo de liquidação e desvia tudo que seria repassado. Nos três lojistas do lab são R$ 163.000 em saldo; em produção é o volume de cada lojista por ciclo. O prejuízo é da Arara duas vezes: perde o dinheiro e ainda indeniza o lojista lesado, porque a falha é de controle da plataforma.</p>
+  <p><span class="lbl">Conserto.</span> O id a alterar vem do token (<code>claims.sub</code>), não do corpo. Se houver conta-mãe operando sub-lojistas, valida-se explicitamente que <code>claims.sub</code> tem permissão sobre aquele <code>merchant_id</code>. <b>Não quebra integradores:</b> o chamador legítimo só altera a própria conta, então <code>merchant_id</code> já é igual ao <code>sub</code> — exigir a igualdade é compatível com o contrato. Dá para fazer em duas fases: primeiro logar/alertar quando <code>sub ≠ merchant_id</code>, depois bloquear. Somar: 2FA para mudar payout e gravar na <code>payout_log</code>.</p>
+</div>
+
+<div class="finding">
+  <h3>2. Verificação do JWT aceita <code>alg:none</code> <span class="chip c-crit">Crítica</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>auth.ts</code>, <code>lerToken()</code>, linhas 14–26.</p>
+  <p><span class="lbl">O que é.</span> A função lê o cabeçalho do token para decidir como verificar. Se o atacante manda <code>alg:none</code>, o código pula a assinatura e aceita o payload como verdade (linhas 21–26) — o atacante escolhe não ter a assinatura checada. Dá para forjar token para qualquer <code>sub</code> sem conhecer segredo nenhum.</p>
+  <figure><img src="{{IMG:02_algnone}}"><figcaption>Figura 2 — token forjado <code>alg:none</code> lendo o cadastro completo do m_0093, sem senha e sem segredo.</figcaption></figure>
+  <p>Encadeado com o #1, troca de payout <b>sem nenhuma credencial</b> — token forjado com <code>sub</code> arbitrário:</p>
+  <figure><img src="{{IMG:05_chain_unauth}}"><figcaption>Figura 3 — cadeia alg:none + BOLA: o recebimento do m_4821 é redirecionado por uma requisição anônima.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> Sozinho já é bypass total de autenticação. Combinado com o #1, o atacante não precisa sequer de uma conta de lojista para desviar o recebimento de todo mundo. É o que eleva o #1 de "qualquer lojista cadastrado" para "qualquer pessoa na internet".</p>
+  <p><span class="lbl">Conserto.</span> Nunca deixar o token dizer como ele deve ser verificado. Remover a leitura manual do cabeçalho e o ramo <code>alg:none</code>, e chamar <code>jwt.verify</code> com a lista de algoritmos travada em <code>['HS256']</code> — a lib rejeita o resto, inclusive <code>none</code>. Não quebra integradores: token real é HS256 e continua valendo.</p>
+</div>
+
+<div class="finding">
+  <h3>3. Cadastro completo exposto + senha em texto plano <span class="chip c-crit">Crítica</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>merchants.controller.ts</code>, <code>consultar()</code> linhas 55–63 e resposta de <code>trocarPayout</code> (linha 52); <code>db.ts</code> (coluna <code>senha</code> em texto plano, comparação <code>m.senha !== body.senha</code>).</p>
+  <p><span class="lbl">O que é.</span> <code>GET /v1/merchants/:id</code> devolve a linha inteira do lojista para qualquer token (sem checar dono), incluindo <code>senha</code>, <code>api_key</code> e <code>webhook_secret</code>. A senha é guardada em texto plano.</p>
+  <figure><img src="{{IMG:03_idor_read}}"><figcaption>Figura 4 — token do m_4821 lendo o cadastro de outro lojista (IDOR).</figcaption></figure>
+  <figure><img src="{{IMG:06_mass_enum}}"><figcaption>Figura 5 — enumeração da base inteira: senha, api_key e webhook_secret de todos os lojistas.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> Com um único token (ou um <code>alg:none</code> do #2), o atacante varre a base e coleta senha, chave de API e segredo de webhook de todos. Senha em texto plano: quem lê o banco, um dump ou um backup já tem as credenciais, sem quebrar hash — e, com reuso de senha, o estrago passa da Arara. É credencial e dado de cliente vazando em massa, com peso de LGPD.</p>
+  <p><span class="lbl">Conserto.</span> A API devolve só o necessário (DTO: id, nome, e-mail, payout mascarado, saldo) e nunca senha/<code>api_key</code>/<code>webhook_secret</code>. Enforce de dono no <code>GET /:id</code>. Senha com hash forte (bcrypt/argon2); migração sem logout (regravar com hash no próximo login válido). Rotacionar <code>api_key</code>s e <code>webhook_secret</code>s expostos. Se algum integrador faz parse do corpo inteiro, versionar o endpoint (v2).</p>
+</div>
+
+<div class="finding">
+  <h3>4. Segredo do JWT fixo no código <span class="chip c-alta">Alta</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>auth.ts</code>, linha 4, <code>JWT_SECRET = 'arara-2024'</code>.</p>
+  <p><span class="lbl">O que é.</span> O segredo que assina os tokens está no fonte. Quem tiver o repositório (ou um vazamento) assina tokens HS256 válidos para qualquer lojista — caminho de forja independente do <code>alg:none</code>. Pior: <code>arara-2024</code> é fraco e adivinhável mesmo sem acesso ao código.</p>
+  <figure><img src="{{IMG:07_hardcoded_secret}}"><figcaption>Figura 6 — token HS256 assinado pelo atacante com o segredo <code>arara-2024</code> aceito como legítimo.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> Qualquer pessoa com o segredo (repo, histórico de git, CI, log) emite tokens de qualquer lojista indefinidamente e, encadeado com #1 e #3, desvia dinheiro e colhe credenciais.</p>
+  <p><span class="lbl">Conserto.</span> Segredo sai do código para um cofre/variável de ambiente, valor forte e aleatório (≥ 32 bytes). Rotação com identificador de chave (<code>kid</code>) e janela aceitando chave antiga e nova. Integração servidor-a-servidor usa <code>api_key</code>, não JWT.</p>
+</div>
+
+<div class="finding">
+  <h3>5. Token sem expiração e <code>ignoreExpiration</code> ligado <span class="chip c-alta">Alta</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>auth.ts</code>, <code>assinarToken()</code> linha 8 e <code>lerToken()</code> linha 31.</p>
+  <p><span class="lbl">O que é.</span> O token é assinado sem <code>exp</code> e a verificação ainda passa <code>ignoreExpiration:true</code>. Token não expira nunca, e mesmo um com <code>exp</code> no passado é aceito.</p>
+  <figure><img src="{{IMG:01_login_jwt}}"><figcaption>Figura 7 — payload do token legítimo: não existe campo <code>exp</code>.</figcaption></figure>
+  <figure><img src="{{IMG:08_expired}}"><figcaption>Figura 8 — token com <code>exp</code> no passado aceito do mesmo jeito.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> Qualquer token que vaze uma vez (ver #7) vale para sempre. Não há janela que feche sozinha. Revogação vira um problema manual que o sistema não resolve hoje.</p>
+  <p><span class="lbl">Conserto.</span> Token de acesso curto (ex.: 15 min) com <code>exp</code>, remover <code>ignoreExpiration</code>. Para sessão longa, refresh token revogável. Período de transição e orientar backends a usar <code>api_key</code>.</p>
+</div>
+
+<div class="finding">
+  <h3>6. <code>webhook_secret</code> igual para todos os lojistas <span class="chip c-alta">Alta</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>db.ts</code>, <code>seed()</code> — <code>whsec_plataforma_unico</code> nos três lojistas (visível na Figura 5).</p>
+  <p><span class="lbl">O que é.</span> Todo lojista compartilha o mesmo segredo de webhook. Como ele ainda vaza pela resposta da API (#3), qualquer um que leu um cadastro assina webhooks como a plataforma para outro lojista.</p>
+  <p><span class="lbl">Impacto na Arara.</span> Webhook é o que avisa o lojista que "o pagamento foi aprovado". Com segredo único, o fraudador forja essa notificação para o sistema de um lojista e dispara a entrega de um produto por uma venda nunca paga. Prejuízo direto ao lojista e disputa/chargeback contra a Arara.</p>
+  <p><span class="lbl">Conserto.</span> Segredo único por lojista, aleatório, guardado cifrado, nunca retornado pela API depois de criado. Assinar e verificar cada webhook com o segredo daquele lojista. Rotação com janela aceitando antigo e novo.</p>
+</div>
+
+<div class="finding">
+  <h3>7. Token e parâmetros caindo no log (debug → CloudWatch) <span class="chip c-media">Média</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>reports.controller.ts</code>, linha 15.</p>
+  <p><span class="lbl">O que é.</span> O endpoint de conciliação loga o header <code>Authorization</code> inteiro e todos os parâmetros, em nível debug que vai para o CloudWatch.</p>
+  <figure><img src="{{IMG:10_token_in_log}}"><figcaption>Figura 9 — Bearer inteiro gravado no log do servidor.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> O token inteiro fica guardado no log. Quem acessa o CloudWatch (time interno amplo, integrador de observabilidade, vazamento de logs) replica a sessão. Como o token não expira (#5), cada linha de log é uma credencial permanente.</p>
+  <p><span class="lbl">Conserto.</span> Nunca logar o header de autorização nem corpo/parâmetros crus. Registrar no máximo o <code>sub</code> verificado e um id de requisição. Baixar o nível do log, redação de segredos no pipeline, restringir acesso/retenção do CloudWatch. Rotacionar tokens já logados.</p>
+</div>
+
+<div class="finding">
+  <h3>8. Path traversal no relatório de conciliação <span class="chip c-media">Média</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>reports.controller.ts</code>, linha 18, <code>`relatorios/${q.arquivo}`</code>.</p>
+  <p><span class="lbl">O que é.</span> O caminho do arquivo é montado concatenando a entrada do cliente sem normalizar. Um <code>../</code> escapa do prefixo <code>relatorios/</code>.</p>
+  <figure><img src="{{IMG:09_path_traversal}}"><figcaption>Figura 10 — <code>../</code> escapando do prefixo de relatórios na URL gerada.</figcaption></figure>
+  <p><span class="lbl">Impacto na Arara.</span> Sendo honesto sobre o alcance: hoje o endpoint só <b>monta e devolve</b> a URL — não lê o arquivo. Mas a URL já aponta para fora da pasta de relatórios. Dependendo de como o S3 (ou o proxy/CDN na frente) trata o <code>../</code>, vira leitura de objetos de outros lojistas (conciliações, dumps, chaves) — dado financeiro de terceiros vazando. O link ainda é apresentado como "assinado", mas não expira e não tem dono.</p>
+  <p><span class="lbl">Conserto.</span> Não aceitar caminho do cliente. Receber um id de relatório, validar contra allowlist (<code>^[A-Za-z0-9_-]{1,64}$</code>) e montar a chave no servidor, escopada ao <code>sub</code>. Rejeitar entrada com separador de caminho ou <code>..</code>. URL pré-assinada de verdade (expira e escopada ao lojista).</p>
+</div>
+
+<div class="finding avoid">
+  <h3>9. Aviso ao lojista desligável pelo chamador <span class="chip c-media">Média</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>merchants.controller.ts</code>, linha 44, <code>if (body.notify !== false)</code>.</p>
+  <p><span class="lbl">O que é.</span> Quem chama a troca de payout decide se o lojista é avisado, mandando <code>notify:false</code> (visível nas Figuras 1 e 3).</p>
+  <p><span class="lbl">Impacto na Arara.</span> É o que torna o ataque do #1 silencioso: o fraudador troca a conta, desliga o aviso, e o lojista só descobre quando o dinheiro não cai. Reduz a janela de detecção a praticamente zero.</p>
+  <p><span class="lbl">Conserto.</span> Notificação de mudança de dado sensível é decisão da plataforma. Remover o <code>notify</code> da API e sempre avisar, por canal fora da sessão (e-mail/SMS cadastrado), com confirmação antes de efetivar.</p>
+</div>
+
+<div class="finding avoid">
+  <h3>10. Login sem rate limit e sem MFA <span class="chip c-baixa">Baixa</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>merchants.controller.ts</code>, <code>login()</code>, linhas 9–20.</p>
+  <p><span class="lbl">O que é.</span> Login compara e-mail e senha sem limite de tentativas e sem segundo fator. As senhas do seed são fracas (<code>arara123</code>, <code>senha2024</code>, <code>mudar123</code>).</p>
+  <p><span class="lbl">Impacto na Arara.</span> Permite força bruta/credential stuffing. Entra como baixa porque #1 e #2 já dão acesso sem senha — mas, com a cadeia crítica corrigida, esta vira a porta de entrada.</p>
+  <p><span class="lbl">Conserto.</span> Rate limit por IP e por conta, backoff/lockout, MFA obrigatório para ações sensíveis (troca de payout). Política de senha forte e checagem contra senhas vazadas.</p>
+</div>
+
+<div class="finding avoid">
+  <h3>11. Sem trilha de auditoria <span class="chip c-baixa">Baixa</span></h3>
+  <p class="where"><span class="lbl">Onde:</span> <code>merchants.controller.ts</code>, linhas 48–49; tabela <code>payout_log</code> (<code>db.ts</code> linhas 21–28) existe e nunca recebe <code>INSERT</code> (confirmado por busca no fonte).</p>
+  <p><span class="lbl">O que é.</span> A <code>payout_log</code> (quem alterou, conta antiga, conta nova, quando) está no schema e nunca é escrita. Toda troca de payout acontece sem rastro.</p>
+  <p><span class="lbl">Impacto na Arara.</span> Não é explorável sozinha, mas é a razão de não conseguir responder "alguém já usou essa falha?". Sem log, a investigação depende de fontes de fora do app.</p>
+  <p><span class="lbl">Conserto.</span> Gravar na <code>payout_log</code> toda alteração: <code>sub</code> do token, conta antiga e nova, quando, IP/origem. Append-only, com alerta para mudança de payout.</p>
+</div>
+
+<div class="avoid">
+  <h3>Observações adicionais (menores)</h3>
+  <p>Itens reais, de severidade baixa, que não mudam o ranking, mas que eu registraria num report de verdade por completude:</p>
+  <ul>
+    <li><b>M1 — Falha de assinatura retorna HTTP 500, não 401.</b> Token com assinatura inválida faz <code>jwt.verify</code> lançar e a exceção não é tratada → NestJS responde <code>500 Internal Server Error</code>. Importa porque atrapalha monitoração (um 401 é esperado; 500 em massa vira alarme errado) e, dependendo da config, pode vazar stack trace. Conserto: capturar erro de auth e padronizar 401.</li>
+    <li><b>M2 — Enumeração de <code>merchant_id</code> por 404 × 200.</b> <code>GET /v1/merchants/:id</code> responde 404 para id inexistente e 200 para existente, mapeando quais ids existem mesmo antes de ler dados. O enforce de dono (#3) fecha isso.</li>
+    <li><b>M3 — Nome do bucket S3 exposto na resposta</b> (<code>arara-conciliacao.s3.amazonaws.com</code>). Vaza nomenclatura de infra, útil para tentativa de acesso direto/enumeração de bucket. Conserto: URL pré-assinada opaca.</li>
+    <li><b>M4 — Comparação de senha não constante no tempo</b> (<code>m.senha !== body.senha</code>). Além do texto plano (#3), vaza por timing. Marginal sobre HTTP, mas some de graça com <code>bcrypt.compare</code>, que o conserto já adota.</li>
+  </ul>
+</div>
+
+<h2 class="pagebreak">Pergunta de julgamento</h2>
+<p class="note"><i>Uma das falhas deixa trocar a conta de recebimento de qualquer lojista. Você corrige o código hoje. Como você descobre se alguém já usou isso antes de você chegar, e o que você faz com o dinheiro que já saiu?</i></p>
+<p>O código não guarda trilha nenhuma — a <code>payout_log</code> existe e nunca foi escrita — então não dá para confiar só no banco da aplicação; o estado atual mostra a conta de agora, não quem a trocou nem quando. A reconstrução vem de fontes independentes, cruzadas numa linha do tempo. Primeiro, backups e binlog/WAL do banco: comparando snapshots ao longo do tempo eu encontro toda troca de payout e a data dela. Depois, os logs de aplicação e do balanceador/WAF para as chamadas em <code>POST /merchants/payout-account</code> — e aqui o próprio log vazado ironicamente ajuda — cruzando a identidade autenticada (o <code>sub</code> do token) com o <code>merchant_id</code> do corpo: toda requisição em que <code>sub ≠ merchant_id</code>, ou que veio com token <code>alg:none</code>, é um forte candidato a abuso. Somo a isso os registros do rail bancário/adquirente sobre para onde o dinheiro de fato foi, comparados com a conta que cada lojista originalmente cadastrou, e os chamados de suporte reclamando de repasse que não caiu. O período anterior ao que os logs cobrem eu trato como presumidamente comprometido e confirmo com cada lojista, um a um, que a conta de payout atual é mesmo dele.</p>
+<p>Com o dinheiro, separo conter de recuperar. Contenção primeiro: congelo os repasses para qualquer conta alterada na janela suspeita e só libero depois de reconfirmar a titularidade fora da sessão. Para o que já saiu, aciono o banco/adquirente para tentar reversão/recall das transferências mais recentes — quanto mais fresco, mais recuperável — registro boletim de fraude e preservo evidências. Em paralelo, indenizo os lojistas afetados conforme contrato e regulação em vez de esperar a recuperação, porque a falha foi de controle da plataforma, não deles; depois persigo o dinheiro nas contas-laranja que receberam, via banco e via polícia. Envolvo jurídico e compliance desde o começo e, como houve exposição de dado pessoal pelo vazamento de cadastro, trato os deveres de notificação de incidente sob a LGPD. A parte honesta: uma vez que o valor cai numa conta-laranja e é sacado, recuperação integral é improvável — então o objetivo real é conter rápido, deixar o lojista inteiro e fechar o buraco (confirmação fora de banda para troca de payout, para não precisar desse mutirão de novo).</p>
+
+<h2 class="pagebreak">Código corrigido (o "depois")</h2>
+<p>Arquivos completos em <code>corrigido/</code>. Os pontos centrais:</p>
+<h3><code>auth.ts</code> — mata <code>alg:none</code>, segredo no ambiente, expiração</h3>
+<pre><code>const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length &lt; 32) {
+  throw new Error('JWT_SECRET ausente ou fraco'); // nao sobe inseguro (#4)
+}
+
+export function assinarToken(merchantId: string): string {
+  return jwt.sign({ sub: merchantId }, JWT_SECRET, {
+    algorithm: 'HS256', expiresIn: '15m',          // expira (#5)
+  });
+}
+
+export function lerToken(authorization?: string): { sub: string } {
+  const token = (authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) throw new UnauthorizedException('token ausente');
+  // sem leitura de header, sem ramo 'none': algoritmo travado (#2), exp volta a valer (#5)
+  return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { sub: string };
+}</code></pre>
+<h3><code>merchants.controller.ts</code> — dono vem do token, DTO sem segredos, auditoria</h3>
+<pre><code>const merchantId = claims.sub;                       // alvo vem do token (#1)
+if (body.merchant_id &amp;&amp; body.merchant_id !== merchantId)
+  throw new ForbiddenException('nao autorizado a alterar outro lojista');
+if (!body.step_up_ok)                                 // 2FA p/ dado financeiro (#1)
+  throw new ForbiddenException('confirmacao de segundo fator obrigatoria');
+
+// ... UPDATE ...
+db.prepare(`INSERT INTO payout_log
+  (merchant_id, quando, conta_antiga, conta_nova, alterado_por)
+  VALUES (?,?,?,?,?)`).run(merchantId, new Date().toISOString(),
+    contaAntiga, contaNova, claims.sub);              // auditoria (#11)
+
+// resposta via DTO, sem senha/api_key/webhook_secret (#3)
+// GET /:id -> if (claims.sub !== id) throw ForbiddenException  (#1/#3)
+// login -> bcrypt.compare + rate limit/lockout (#3/#10/M4)</code></pre>
+<h3><code>reports.controller.ts</code> — sem log de token, sem traversal</h3>
+<pre><code>const ref = String(q.ref ?? '');
+if (!/^[A-Za-z0-9_-]{1,64}$/.test(ref))
+  throw new BadRequestException('referencia invalida'); // barra '/' e '..' (#8)
+const chave = `relatorios/${claims.sub}/${ref}.csv`;    // escopado ao dono
+// nao logar Authorization nem params crus (#7); URL pré-assinada que expira (#8)</code></pre>
+
+<h2 class="pagebreak">Validação das correções — antes × depois</h2>
+<p>Correções aplicadas num lab paralelo (porta 3001, segredo via ambiente); mesmos ataques rodados de novo.</p>
+<table>
+  <thead><tr><th>Ataque</th><th class="c">Antes</th><th class="c">Depois</th></tr></thead>
+  <tbody>
+    <tr><td>Forja <code>alg:none</code></td><td class="c">200 OK</td><td class="c">401</td></tr>
+    <tr><td>Trocar payout de outro (BOLA)</td><td class="c">201</td><td class="c">403</td></tr>
+    <tr><td>Token forjado/expirado</td><td class="c">200 OK</td><td class="c">401</td></tr>
+    <tr><td>Ler cadastro de outro (IDOR)</td><td class="c">200 OK</td><td class="c">403</td></tr>
+    <tr><td>Token com segredo <code>arara-2024</code></td><td class="c">200 OK</td><td class="c">401</td></tr>
+    <tr><td>Path traversal</td><td class="c">URL fora da pasta</td><td class="c">400</td></tr>
+    <tr><td>Trocar a <b>própria</b> conta (happy path)</td><td class="c">201</td><td class="c">201 (ok)</td></tr>
+  </tbody>
+</table>
+<figure><img src="{{IMG:after/a2_bola_blocked}}"><figcaption>Figura 11 — depois: BOLA bloqueado (403), o dono vem do token.</figcaption></figure>
+<figure><img src="{{IMG:after/a1_algnone_blocked}}"><figcaption>Figura 12 — depois: token <code>alg:none</code> rejeitado (401).</figcaption></figure>
+<figure><img src="{{IMG:after/a4_idor_blocked_dto}}"><figcaption>Figura 13 — depois: IDOR bloqueado e resposta via DTO, sem senha/api_key/webhook_secret.</figcaption></figure>
+<figure><img src="{{IMG:after/a6_traversal_blocked}}"><figcaption>Figura 14 — depois: path traversal rejeitado (400).</figcaption></figure>
+<figure><img src="{{IMG:after/a7_happy_path}}"><figcaption>Figura 15 — depois: o lojista troca a própria conta normalmente (201). A correção não quebra quem já integra.</figcaption></figure>
+
+<h2 class="pagebreak">Declaração de uso de IA</h2>
+<p>O enunciado é explícito: "declare o que foi você e o que foi a máquina. Usar não tira ponto. Mentir tira." Então, honestamente:</p>
+<ul>
+  <li><b>Máquina (IA):</b> apoio na leitura dos cinco arquivos e no levantamento dos pontos suspeitos; subida do lab local; escrita e execução dos comandos de prova (<code>curl</code> e geradores de token forjado); captura das saídas; redação da primeira versão do texto; e um passo de validação que subiu o lab de novo e reexecutou todos os PoCs contra a instância viva para confirmar que cada saída colada é real.</li>
+  <li><b>Humano (eu):</b> revisão de cada achado, da severidade, do ranking e do impacto de negócio; conferência de que cada PoC bate com o que está escrito; decisão sobre o que entra e o que fica de fora; ajuste do texto e das recomendações de conserto para o contexto da Arara. Entendo e sei defender cada item daqui.</li>
+</ul>
+<p>As falhas no fonte estão marcadas com <code>[plantado]</code> pelos autores do lab; usei isso para conferir a cobertura, não como atalho — cada uma está provada contra a instância em execução.</p>
+
+<h2 class="pagebreak">Anexo A — transcrição de evidências (execução real)</h2>
+<p class="meta">Saída capturada contra <code>http://localhost:3000</code> (banco em memória, estado inicial a cada start). Tokens forjados gerados com <code>mktok.js</code> (HMAC via <code>crypto</code> nativo, sem libs externas).</p>
+<pre><code>{{EVID}}</code></pre>
+
+<div class="foot">Arara Pay — lab de segurança · documento confidencial · Enzo Augusto Ferreira · 07/10/2026</div>
+
+</body>
+</html>
